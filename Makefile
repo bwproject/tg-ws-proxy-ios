@@ -1,31 +1,34 @@
-# TG WS Proxy — iOS Build (Cross-compile from Windows/Mac)
-# On Windows: make go-lib  (компилирует Go static library)
-# On Mac: make xcframework (создаёт XCFramework из .a файлов)
+# TG WS Proxy — iOS 15+ Build
+# On Windows: make go-lib (Go static library only)
+# On Mac: make xcframework (creates XCFramework from .a files)
 
 APP_NAME := TgWsProxy
 LIB_NAME := libtgwsproxy
 BUILD_DIR := build
+MIN_IOS := 15.0
 
 .PHONY: all go-lib xcframework clean
 
 all: go-lib
 
-# Кросс-компиляция Go → iOS static library (работает на Windows/Linux/Mac)
 go-lib:
-	@echo "==> Building $(LIB_NAME).a for iOS device (arm64)"
+	@echo "==> Building $(LIB_NAME).a for iOS device (arm64), minimum iOS $(MIN_IOS)"
 	@mkdir -p $(BUILD_DIR)/ios
-	GOOS=ios GOARCH=arm64 CGO_ENABLED=1 \
+	CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
+		CGO_CFLAGS="-mios-version-min=$(MIN_IOS)" \
+		CGO_LDFLAGS="-mios-version-min=$(MIN_IOS)" \
 		go build -buildmode=c-archive -o $(BUILD_DIR)/ios/$(LIB_NAME).a .
 
-	@echo "==> Building $(LIB_NAME).a for iOS Simulator (arm64)"
+	@echo "==> Building $(LIB_NAME).a for iOS Simulator (arm64), minimum iOS $(MIN_IOS)"
 	@mkdir -p $(BUILD_DIR)/sim
-	GOOS=ios GOARCH=arm64 CGO_ENABLED=1 \
+	CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
+		CGO_CFLAGS="-mios-simulator-version-min=$(MIN_IOS)" \
+		CGO_LDFLAGS="-mios-simulator-version-min=$(MIN_IOS)" \
 		GOFLAGS="-tags=iossimulator" \
 		go build -buildmode=c-archive -o $(BUILD_DIR)/sim/$(LIB_NAME).a .
 
 	@echo "==> Done: $(BUILD_DIR)/ios/ and $(BUILD_DIR)/sim/"
 
-# Только для Mac — создаёт XCFramework из готовых .a файлов
 xcframework: go-lib
 	@echo "==> Creating XCFramework"
 	xcodebuild -create-xcframework \
