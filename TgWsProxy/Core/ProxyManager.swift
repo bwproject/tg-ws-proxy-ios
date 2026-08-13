@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 struct ProxyStats {
     var total: Int64 = 0
