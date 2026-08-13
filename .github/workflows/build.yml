@@ -13,6 +13,9 @@ concurrency:
   group: ios15-build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-14
@@ -56,7 +59,8 @@ jobs:
       - name: Build unsigned iOS app
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
+          mkdir -p build/logs
           xcodebuild archive \
             -project TgWsProxy.xcodeproj \
             -scheme TgWsProxy \
@@ -68,7 +72,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             "LIBRARY_SEARCH_PATHS=$(pwd)/build/ios" \
-            "OTHER_LDFLAGS=$(pwd)/build/ios/libtgwsproxy.a"
+            "OTHER_LDFLAGS=$(pwd)/build/ios/libtgwsproxy.a" \
+            2>&1 | tee build/logs/xcodebuild.log
 
       - name: Verify app
         shell: bash
@@ -76,7 +81,9 @@ jobs:
           set -euo pipefail
           APP="build/TgWsProxy.xcarchive/Products/Applications/TgWsProxy.app"
           test -d "$APP"
-          echo "MinimumOSVersion: $(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")"
+          MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
+          echo "MinimumOSVersion: $MIN_OS"
+          test "$MIN_OS" = "15.0"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
 
       - name: Package IPA
@@ -104,3 +111,32 @@ jobs:
           path: build/TgWsProxy.xcframework
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TgWsProxy-iOS15-build-log-${{ github.run_number }}
+          path: build/logs/xcodebuild.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="ios15-v1.0.0"
+          TITLE="TG WS Proxy iOS 15 v1.0.0"
+          NOTES="iOS 15 compatible build of TG WS Proxy.\n\nMinimum supported iOS: 15.0.\nArchitecture: arm64.\n\nIPA is unsigned and intended for sideloading (AltStore, Sideloadly, TrollStore where applicable)."
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/TgWsProxy.ipa --clobber
+          else
+            gh release create "$TAG" build/TgWsProxy.ipa \
+              --target ios15 \
+              --title "$TITLE" \
+              --notes "$NOTES"
+          fi
