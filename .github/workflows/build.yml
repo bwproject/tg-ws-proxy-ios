@@ -23,16 +23,16 @@ jobs:
         CC_PATH=$(xcrun --sdk iphoneos -f clang)
         CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
           CC="$CC_PATH" \
-          CGO_CFLAGS="-isysroot $SDK_PATH -arch arm64 -mios-version-min=16.0" \
-          CGO_LDFLAGS="-isysroot $SDK_PATH -arch arm64 -mios-version-min=16.0" \
+          CGO_CFLAGS="-isysroot $SDK_PATH -arch arm64 -mios-version-min=15.0" \
+          CGO_LDFLAGS="-isysroot $SDK_PATH -arch arm64 -mios-version-min=15.0" \
           go build -v -buildmode=c-archive -o build/ios/libtgwsproxy.a .
 
         SIM_SDK_PATH=$(xcrun --sdk iphonesimulator --show-sdk-path)
         SIM_CC_PATH=$(xcrun --sdk iphonesimulator -f clang)
         CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
           CC="$SIM_CC_PATH" \
-          CGO_CFLAGS="-isysroot $SIM_SDK_PATH -arch arm64 -mios-simulator-version-min=16.0" \
-          CGO_LDFLAGS="-isysroot $SIM_SDK_PATH -arch arm64 -mios-simulator-version-min=16.0" \
+          CGO_CFLAGS="-isysroot $SIM_SDK_PATH -arch arm64 -mios-simulator-version-min=15.0" \
+          CGO_LDFLAGS="-isysroot $SIM_SDK_PATH -arch arm64 -mios-simulator-version-min=15.0" \
           go build -v -buildmode=c-archive -o build/sim/libtgwsproxy.a .
 
         xcodebuild -create-xcframework \
@@ -47,6 +47,7 @@ jobs:
           -scheme TgWsProxy \
           -configuration Release \
           -archivePath build/TgWsProxy.xcarchive \
+          IPHONEOS_DEPLOYMENT_TARGET=15.0 \
           CODE_SIGN_IDENTITY="-" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
