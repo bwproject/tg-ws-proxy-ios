@@ -1,6 +1,8 @@
 name: Build iOS App
 
 on:
+  push:
+    branches: [ "ios15" ]
   workflow_dispatch:
 
 jobs:
@@ -54,6 +56,10 @@ jobs:
           AD_HOC_CODE_SIGNING_ALLOWED=YES \
           "LIBRARY_SEARCH_PATHS=$(pwd)/build/ios" \
           "OTHER_LDFLAGS=$(pwd)/build/ios/libtgwsproxy.a"
+
+    - name: Verify deployment target
+      run: |
+        /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" build/TgWsProxy.xcarchive/Products/Applications/TgWsProxy.app/Info.plist
 
     - name: Create .ipa
       run: |
