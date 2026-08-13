@@ -29,7 +29,7 @@ struct InfoTab: View {
             HStack {
                 Label("iOS Port", systemImage: "apple.logo")
                     .font(.caption)
-                    .fontWeight(.semibold)
+                    .bold()
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(Color.white.opacity(0.3))
@@ -37,7 +37,7 @@ struct InfoTab: View {
 
                 Label("Flowseal Base", systemImage: "arrow.triangle.branch")
                     .font(.caption)
-                    .fontWeight(.semibold)
+                    .bold()
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(Color.blue.opacity(0.2))
@@ -47,7 +47,7 @@ struct InfoTab: View {
             VStack(spacing: 8) {
                 Text("Telegram WS Proxy")
                     .font(.title)
-                    .fontWeight(.black)
+                    .bold()
                 Text("MTProto-прокси для Telegram через CloudFlare WebSocket")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -58,7 +58,7 @@ struct InfoTab: View {
                 HStack {
                     Image(systemName: "heart.fill")
                     Text("Поддержать разработку")
-                        .fontWeight(.bold)
+                        .bold()
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
@@ -144,7 +144,7 @@ private struct ActionTile: View {
             HStack(spacing: 12) {
                 Image(systemName: icon).foregroundColor(.blue).frame(width: 36, height: 36).background(Color.blue.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.subheadline).fontWeight(.semibold).foregroundColor(.primary)
+                    Text(title).font(.subheadline).bold().foregroundColor(.primary)
                     Text(subtitle).font(.caption).foregroundColor(.secondary)
                 }
                 Spacer()
@@ -170,7 +170,7 @@ private struct LinkRow: View {
             HStack(spacing: 12) {
                 Image(systemName: icon).foregroundColor(.blue).frame(width: 36, height: 36).background(Color.blue.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.subheadline).fontWeight(.semibold).foregroundColor(.primary)
+                    Text(title).font(.subheadline).bold().foregroundColor(.primary)
                     Text(subtitle).font(.caption).foregroundColor(.secondary)
                 }
                 Spacer()
