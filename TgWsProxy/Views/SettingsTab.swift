@@ -6,7 +6,7 @@ struct SettingsTab: View {
     @State private var showIpSetup = false
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section {
                     HStack {
@@ -122,7 +122,7 @@ struct IpSetupSheet: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 if settings.isExperimentalMode {
                     Section("Основные DC") {
