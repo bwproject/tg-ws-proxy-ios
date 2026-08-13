@@ -27,7 +27,7 @@ struct InfoTab: View {
     private var heroCard: some View {
         VStack(spacing: 16) {
             HStack {
-                Label("iOS Port", systemImage: "apple.logo")
+                Label("iOS 15 Fork", systemImage: "apple.logo")
                     .font(.caption)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -45,13 +45,15 @@ struct InfoTab: View {
             VStack(spacing: 8) {
                 Text("Telegram WS Proxy")
                     .font(.title)
-                Text("MTProto-прокси для Telegram через CloudFlare WebSocket")
+                Text("Форк форка Flowseal для iOS 15. MTProto-прокси для Telegram через CloudFlare WebSocket")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
             }
 
-            Button(action: {}) {
+            Button(action: {
+                openUrl("https://dalink.to/the_mr_mes109")
+            }) {
                 HStack {
                     Image(systemName: "heart.fill")
                     Text("Поддержать разработку")
@@ -78,14 +80,15 @@ struct InfoTab: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Действия", icon: "bolt.fill", count: 3)
             ActionTile(title: "Справка", subtitle: "Как настроить и использовать прокси", icon: "questionmark.circle.fill", action: { showHelp = true })
-            ActionTile(title: "GitHub Issues", subtitle: "Сообщить об ошибке", icon: "ant.fill", action: { openUrl("https://github.com/amurcanov/tg-ws-proxy-android/issues/new") })
+            ActionTile(title: "GitHub Issues", subtitle: "Сообщить об ошибке", icon: "ant.fill", action: { openUrl("https://github.com/bwproject/tg-ws-proxy-ios/issues/new") })
             ActionTile(title: "Собрать отчёт", subtitle: "Копирует техническую информацию в буфер", icon: "doc.on.clipboard.fill", action: copyReport)
         }
     }
 
     private var projectSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "О проекте", icon: "chevron.left.forwardslash.chevron.right", count: 3)
+            SectionHeader(title: "О проекте", icon: "chevron.left.forwardslash.chevron.right", count: 4)
+            LinkRow(title: "Этот проект", subtitle: "Форк форка для iOS 15", icon: "iphone", url: "https://github.com/bwproject/tg-ws-proxy-ios/tree/ios15")
             LinkRow(title: "Оригинальный tg-ws-proxy", subtitle: "Flowseal", icon: "arrow.triangle.branch", url: "https://github.com/Flowseal/tg-ws-proxy")
             LinkRow(title: "Android Fork", subtitle: "Amurcanov", icon: "smartphone", url: "https://github.com/amurcanov/tg-ws-proxy-android")
             LinkRow(title: "MTProto Proxy Reference", subtitle: "Документация", icon: "doc.text", url: "https://core.telegram.org/mtproto/mtproto-transports")
@@ -93,7 +96,7 @@ struct InfoTab: View {
     }
 
     private func copyReport() {
-        var report = "App: TG WS Proxy iOS\n"
+        var report = "App: TG WS Proxy iOS 15 Fork\n"
         report += "Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")\n"
         report += "Settings: port=\(settings.port), pool=\(settings.poolSize), cf=\(settings.cfproxyEnabled)\n"
         report += "Stats: \(proxyManager.stats.description)\n"
