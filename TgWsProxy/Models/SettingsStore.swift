@@ -1,4 +1,6 @@
 import Foundation
+import Combine
+import Security
 
 class SettingsStore: ObservableObject {
     private let defaults = UserDefaults.standard
