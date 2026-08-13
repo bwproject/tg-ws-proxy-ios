@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import UIKit
 import AVFoundation
 import CoreLocation
@@ -164,7 +165,6 @@ class BackgroundManager: NSObject, ObservableObject {
 
 extension BackgroundManager: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        // Location update keeps app alive
         NSLog("[Background] Location update received")
     }
     
