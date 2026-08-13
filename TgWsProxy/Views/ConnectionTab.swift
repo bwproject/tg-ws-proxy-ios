@@ -21,7 +21,7 @@ struct ConnectionTab: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             VStack(spacing: 16) {
                 Spacer()
 
