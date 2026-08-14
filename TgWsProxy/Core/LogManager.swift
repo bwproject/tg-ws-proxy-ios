@@ -1,5 +1,8 @@
 import Foundation
+import Combine
 
+// Central in-app logger. Every runtime message is kept here so the Logs tab
+// does not depend on Xcode Console / os.log availability.
 enum LogLevel: String {
     case info = "INFO"
     case warn = "WARN"
@@ -16,48 +19,38 @@ struct LogEntry: Identifiable {
     var isEssential: Bool = false
 }
 
-class LogManager: ObservableObject {
+final class LogManager: ObservableObject {
     static let shared = LogManager()
 
-    @Published var logs: [LogEntry] = []
-
-    private let essentialMarkers = [
-        "pool", "key:", "started", "address:", "error", "failed", "blocked",
-        "Пул", "Ключ:", "запущен", "Адрес:", "ошибка", "провалены", "заблокирован"
-    ]
+    @Published private(set) var logs: [LogEntry] = []
 
     private init() {}
 
     func addLog(_ message: String, level: LogLevel = .info) {
-        let cleaned = message
-            .replacingOccurrences(of: "[↑↓].*", with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let isEssential = essentialMarkers.contains { cleaned.localizedCaseInsensitiveContains($0) }
+        let cleaned = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return }
 
         let entry = LogEntry(
             message: cleaned,
             level: level,
             timestamp: Date(),
-            isEssential: isEssential
+            isEssential: level == .error || level == .warn
         )
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            if let last = self.logs.last, last.message == entry.message {
-                self.logs[self.logs.count - 1].count += 1
-            } else {
-                self.logs.append(entry)
-                if self.logs.count > 100 {
-                    self.logs.removeFirst()
-                }
+            // Do not hide/rewrite messages: the in-app log must contain the
+            // complete runtime output, including repeated statistics lines.
+            self.logs.append(entry)
+            if self.logs.count > 500 {
+                self.logs.removeFirst(self.logs.count - 500)
             }
         }
     }
 
     func clearLogs() {
-        DispatchQueue.main.async {
-            self.logs = []
+        DispatchQueue.main.async { [weak self] in
+            self?.logs.removeAll()
         }
     }
 }
