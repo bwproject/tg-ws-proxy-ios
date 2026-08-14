@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct LogsTab: View {
     @EnvironmentObject var logManager: LogManager
@@ -8,11 +9,22 @@ struct LogsTab: View {
         if settings.logShowNull {
             return [LogEntry(message: "Отображение логов отключено", level: .info, timestamp: Date(), isEssential: true)]
         }
-        return logManager.logs.filter { entry in
-            entry.isEssential ||
-            (settings.logShowInfo && entry.level == .info) ||
-            (settings.logShowError && (entry.level == .error || entry.level == .warn))
+
+        // The app log is intended to be a complete runtime log. Keep all
+        // levels visible by default; INFO/ERROR buttons remain available as
+        // quick filters for the existing UI.
+        let info = settings.logShowInfo
+        let errors = settings.logShowError
+        if info && errors {
+            return logManager.logs
         }
+        if info {
+            return logManager.logs.filter { $0.level == .info || $0.level == .debug }
+        }
+        if errors {
+            return logManager.logs.filter { $0.level == .error || $0.level == .warn }
+        }
+        return logManager.logs
     }
 
     var body: some View {
@@ -21,6 +33,9 @@ struct LogsTab: View {
                 Text("Журнал")
                     .font(.headline)
                 Spacer()
+                Text("\(logManager.logs.count)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 Button(action: { logManager.clearLogs() }) {
                     Image(systemName: "trash")
                         .foregroundColor(.red)
@@ -34,24 +49,20 @@ struct LogsTab: View {
             .padding(.top, 8)
 
             HStack(spacing: 8) {
-                FilterChip(
-                    label: "INFO",
-                    selected: settings.logShowInfo && !settings.logShowNull
-                ) {
+                FilterChip(label: "INFO", selected: settings.logShowInfo && !settings.logShowNull) {
                     settings.logShowInfo.toggle()
                     settings.logShowNull = false
                 }
-                FilterChip(
-                    label: "ERROR",
-                    selected: settings.logShowError && !settings.logShowNull
-                ) {
+                FilterChip(label: "ERROR", selected: settings.logShowError && !settings.logShowNull) {
                     settings.logShowError.toggle()
                     settings.logShowNull = false
                 }
-                FilterChip(
-                    label: "NULL",
-                    selected: settings.logShowNull
-                ) {
+                FilterChip(label: "ALL", selected: settings.logShowInfo && settings.logShowError && !settings.logShowNull) {
+                    settings.logShowInfo = true
+                    settings.logShowError = true
+                    settings.logShowNull = false
+                }
+                FilterChip(label: "NULL", selected: settings.logShowNull) {
                     settings.logShowNull.toggle()
                 }
             }
@@ -62,11 +73,11 @@ struct LogsTab: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(filteredLogs) { entry in
-                            LogLineView(entry: entry)
-                                .id(entry.id)
+                            LogLineView(entry: entry).id(entry.id)
                         }
                     }
                     .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 16)
@@ -76,9 +87,7 @@ struct LogsTab: View {
                 .padding(.horizontal, 12)
                 .onChange(of: filteredLogs.count) { _ in
                     if let last = filteredLogs.last {
-                        withAnimation {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
+                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
             }
@@ -87,7 +96,9 @@ struct LogsTab: View {
     }
 
     private func copyLogs() {
-        let text = filteredLogs.map { "\($0.message) (x\($0.count))" }.joined(separator: "\n")
+        let text = filteredLogs.map {
+            "[\($0.level.rawValue)] \($0.message) (x\($0.count))"
+        }.joined(separator: "\n")
         UIPasteboard.general.string = text
     }
 }
@@ -134,17 +145,10 @@ private struct LogLineView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
-            Text("\(entry.count)")
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.blue)
-                .frame(minWidth: 20)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.blue.opacity(0.1))
-                )
+            Text(entry.timestamp, style: .time)
+                .font(.caption2.monospacedDigit())
+                .foregroundColor(.secondary)
+                .frame(width: 54, alignment: .leading)
 
             Image(systemName: iconName)
                 .font(.caption2)
@@ -155,6 +159,7 @@ private struct LogLineView: View {
                 .font(.system(.caption, design: .monospaced))
                 .foregroundColor(color)
                 .fontWeight(entry.level == .error ? .bold : .regular)
+                .textSelection(.enabled)
         }
     }
 }
