@@ -10,13 +10,12 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     name: Build TgWsProxy iOS 15
     runs-on: macos-14
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,50 +38,15 @@ jobs:
         shell: bash
         run: |
           set -e
-          ASSETS_DIR="TgWsProxy/Assets.xcassets"
-          ICON_DIR="$ASSETS_DIR/AppIcon.appiconset"
+          ICON_DIR="TgWsProxy/Assets.xcassets/AppIcon.appiconset"
           SOURCE="$ICON_DIR/AppIcon.png"
-          test -d "$ASSETS_DIR"
           test -d "$ICON_DIR"
           test -f "$SOURCE"
-
           for size in 40 58 60 76 80 87 120 152 167 180 1024; do
             sips -z "$size" "$size" "$SOURCE" --out "$ICON_DIR/AppIcon-${size}.png" >/dev/null
           done
-
-          cat > "$ICON_DIR/Contents.json" <<'EOF'
-{
-  "images" : [
-    { "filename" : "AppIcon-40.png", "idiom" : "iphone", "scale" : "2x", "size" : "20x20" },
-    { "filename" : "AppIcon-60.png", "idiom" : "iphone", "scale" : "3x", "size" : "20x20" },
-    { "filename" : "AppIcon-58.png", "idiom" : "iphone", "scale" : "2x", "size" : "29x29" },
-    { "filename" : "AppIcon-87.png", "idiom" : "iphone", "scale" : "3x", "size" : "29x29" },
-    { "filename" : "AppIcon-80.png", "idiom" : "iphone", "scale" : "2x", "size" : "40x40" },
-    { "filename" : "AppIcon-120.png", "idiom" : "iphone", "scale" : "3x", "size" : "40x40" },
-    { "filename" : "AppIcon-120.png", "idiom" : "iphone", "scale" : "2x", "size" : "60x60" },
-    { "filename" : "AppIcon-180.png", "idiom" : "iphone", "scale" : "3x", "size" : "60x60" },
-    { "filename" : "AppIcon-40.png", "idiom" : "ipad", "scale" : "2x", "size" : "20x20" },
-    { "filename" : "AppIcon-58.png", "idiom" : "ipad", "scale" : "2x", "size" : "29x29" },
-    { "filename" : "AppIcon-80.png", "idiom" : "ipad", "scale" : "2x", "size" : "40x40" },
-    { "filename" : "AppIcon-76.png", "idiom" : "ipad", "scale" : "1x", "size" : "76x76" },
-    { "filename" : "AppIcon-152.png", "idiom" : "ipad", "scale" : "2x", "size" : "76x76" },
-    { "filename" : "AppIcon-167.png", "idiom" : "ipad", "scale" : "2x", "size" : "83.5x83.5" },
-    { "filename" : "AppIcon-1024.png", "idiom" : "ios-marketing", "scale" : "1x", "size" : "1024x1024" }
-  ],
-  "info" : { "author" : "xcode", "version" : 1 }
-}
-EOF
-
-          rm -rf /tmp/appicon-test
-          mkdir -p /tmp/appicon-test
-          rm -f /tmp/appicon-info.plist
-          xcrun actool "$ASSETS_DIR" \
-            --compile /tmp/appicon-test \
-            --platform iphoneos \
-            --minimum-deployment-target 15.0 \
-            --app-icon AppIcon \
-            --output-partial-info-plist /tmp/appicon-info.plist
-
+          python3 -m json.tool "$ICON_DIR/Contents.json" >/dev/null
+          xcrun actool "TgWsProxy/Assets.xcassets" --compile /tmp/appicon-test --platform iphoneos --minimum-deployment-target 15.0 --app-icon AppIcon --output-partial-info-plist /tmp/appicon-info.plist
           test -f /tmp/appicon-test/Assets.car
 
       - name: Build Go static libraries
@@ -91,47 +55,20 @@ EOF
           set -e
           rm -rf build
           mkdir -p build/ios build/sim
-
           IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           IOS_CC=$(xcrun --sdk iphoneos -f clang)
-          CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
-            CC="$IOS_CC" \
-            CGO_CFLAGS="-isysroot $IOS_SDK -arch arm64 -mios-version-min=15.0" \
-            CGO_LDFLAGS="-isysroot $IOS_SDK -arch arm64 -mios-version-min=15.0" \
-            go build -v -buildmode=c-archive -o build/ios/libtgwsproxy.a .
-
+          CGO_ENABLED=1 GOOS=ios GOARCH=arm64 CC="$IOS_CC" CGO_CFLAGS="-isysroot $IOS_SDK -arch arm64 -mios-version-min=15.0" CGO_LDFLAGS="-isysroot $IOS_SDK -arch arm64 -mios-version-min=15.0" go build -v -buildmode=c-archive -o build/ios/libtgwsproxy.a .
           SIM_SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
           SIM_CC=$(xcrun --sdk iphonesimulator -f clang)
-          CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
-            CC="$SIM_CC" \
-            CGO_CFLAGS="-isysroot $SIM_SDK -arch arm64 -mios-simulator-version-min=15.0" \
-            CGO_LDFLAGS="-isysroot $SIM_SDK -arch arm64 -mios-simulator-version-min=15.0" \
-            go build -v -buildmode=c-archive -o build/sim/libtgwsproxy.a .
-
-          xcodebuild -create-xcframework \
-            -library build/ios/libtgwsproxy.a -headers include \
-            -library build/sim/libtgwsproxy.a -headers include \
-            -output build/TgWsProxy.xcframework
+          CGO_ENABLED=1 GOOS=ios GOARCH=arm64 CC="$SIM_CC" CGO_CFLAGS="-isysroot $SIM_SDK -arch arm64 -mios-simulator-version-min=15.0" CGO_LDFLAGS="-isysroot $SIM_SDK -arch arm64 -mios-simulator-version-min=15.0" go build -v -buildmode=c-archive -o build/sim/libtgwsproxy.a .
+          xcodebuild -create-xcframework -library build/ios/libtgwsproxy.a -headers include -library build/sim/libtgwsproxy.a -headers include -output build/TgWsProxy.xcframework
 
       - name: Build unsigned iOS archive
         shell: bash
         run: |
           set -o pipefail
           mkdir -p build/logs
-          xcodebuild archive \
-            -project TgWsProxy.xcodeproj \
-            -scheme TgWsProxy \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$PWD/build/TgWsProxy.xcarchive" \
-            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY='' \
-            LIBRARY_SEARCH_PATHS="$PWD/build/ios" \
-            OTHER_LDFLAGS="$PWD/build/ios/libtgwsproxy.a" \
-            | tee build/logs/xcodebuild.log
+          xcodebuild archive -project TgWsProxy.xcodeproj -scheme TgWsProxy -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath "$PWD/build/TgWsProxy.xcarchive" IPHONEOS_DEPLOYMENT_TARGET=15.0 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' LIBRARY_SEARCH_PATHS="$PWD/build/ios" OTHER_LDFLAGS="$PWD/build/ios/libtgwsproxy.a" | tee build/logs/xcodebuild.log
 
       - name: Verify archive
         shell: bash
@@ -141,7 +78,6 @@ EOF
           test -d "$APP"
           test -f "$APP/Assets.car"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
-          /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist" || true
           file "$APP/TgWsProxy"
 
       - name: Create IPA
@@ -153,7 +89,6 @@ EOF
           cp -R build/TgWsProxy.xcarchive/Products/Applications/TgWsProxy.app build/Payload/
           /usr/bin/ditto -c -k --sequesterRsrc --keepParent build/Payload build/TgWsProxy-ios15.ipa
           test -f build/TgWsProxy-ios15.ipa
-          ls -lh build/TgWsProxy-ios15.ipa
 
       - name: Upload IPA
         if: success()
