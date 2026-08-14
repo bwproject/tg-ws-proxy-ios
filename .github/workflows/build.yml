@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -42,37 +42,16 @@ jobs:
           ICON_DIR="TgWsProxy/Assets.xcassets/AppIcon.appiconset"
           SOURCE="$ICON_DIR/AppIcon.png"
           test -f "$SOURCE"
+          test -f "$ICON_DIR/Contents.json"
 
           for size in 40 58 60 76 80 87 120 152 167 180 1024; do
             sips -z "$size" "$size" "$SOURCE" --out "$ICON_DIR/AppIcon-${size}.png" >/dev/null
           done
 
-          cat > "$ICON_DIR/Contents.json" <<'EOF'
-{
-  "images" : [
-    { "filename" : "AppIcon-40.png", "idiom" : "iphone", "scale" : "2x", "size" : "20x20" },
-    { "filename" : "AppIcon-60.png", "idiom" : "iphone", "scale" : "3x", "size" : "20x20" },
-    { "filename" : "AppIcon-58.png", "idiom" : "iphone", "scale" : "2x", "size" : "29x29" },
-    { "filename" : "AppIcon-87.png", "idiom" : "iphone", "scale" : "3x", "size" : "29x29" },
-    { "filename" : "AppIcon-80.png", "idiom" : "iphone", "scale" : "2x", "size" : "40x40" },
-    { "filename" : "AppIcon-120.png", "idiom" : "iphone", "scale" : "3x", "size" : "40x40" },
-    { "filename" : "AppIcon-120.png", "idiom" : "iphone", "scale" : "2x", "size" : "60x60" },
-    { "filename" : "AppIcon-180.png", "idiom" : "iphone", "scale" : "3x", "size" : "60x60" },
-    { "filename" : "AppIcon-40.png", "idiom" : "ipad", "scale" : "2x", "size" : "20x20" },
-    { "filename" : "AppIcon-58.png", "idiom" : "ipad", "scale" : "2x", "size" : "29x29" },
-    { "filename" : "AppIcon-80.png", "idiom" : "ipad", "scale" : "2x", "size" : "40x40" },
-    { "filename" : "AppIcon-76.png", "idiom" : "ipad", "scale" : "1x", "size" : "76x76" },
-    { "filename" : "AppIcon-152.png", "idiom" : "ipad", "scale" : "2x", "size" : "76x76" },
-    { "filename" : "AppIcon-167.png", "idiom" : "ipad", "scale" : "2x", "size" : "83.5x83.5" },
-    { "filename" : "AppIcon-1024.png", "idiom" : "ios-marketing", "scale" : "1x", "size" : "1024x1024" }
-  ],
-  "info" : { "author" : "xcode", "version" : 1 }
-}
-EOF
-
           rm -rf /tmp/appicon-test
           mkdir -p /tmp/appicon-test
           rm -f /tmp/appicon-info.plist
+
           xcrun actool "$ICON_DIR" \
             --compile /tmp/appicon-test \
             --platform iphoneos \
