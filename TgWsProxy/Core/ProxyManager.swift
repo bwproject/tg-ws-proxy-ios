@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import os.log
 
 struct ProxyStats {
     var total: Int64 = 0
@@ -42,18 +43,26 @@ class ProxyManager: ObservableObject {
 
     private var statsTimer: Timer?
     private let statsQueue = DispatchQueue(label: "com.tgwsproxy.stats", qos: .utility)
+    private let logger = Logger(subsystem: "com.tgwsproxy", category: "Proxy")
 
     private init() {}
 
     func start(port: Int, dcIps: String, poolSize: Int, cfEnabled: Bool, cfPriority: Bool, cfDomain: String, secretKey: String) -> Bool {
-        guard !isRunning else { return false }
+        guard !isRunning else {
+            logger.info("Start requested while proxy is already running")
+            return false
+        }
+
+        logger.info("Starting proxy: port=\(port), pool=\(poolSize), cf=\(cfEnabled), cfPriority=\(cfPriority), dcIps=\(dcIps, privacy: .private(mask: .hash)), secretConfigured=\(!secretKey.isEmpty)")
 
         SetPoolSize(Int32(poolSize))
         SetCfProxyCacheDir(cachesDirectory().path)
         SetCfProxyConfig(cfEnabled ? 1 : 0, cfPriority ? 1 : 0, cfDomain)
 
+        logger.debug("Native proxy configuration applied")
         let host = "127.0.0.1"
         let result = StartProxy(host, Int32(port), dcIps, secretKey, 1)
+        logger.info("StartProxy returned \(result)")
 
         if result == 0 {
             DispatchQueue.main.async {
@@ -61,54 +70,85 @@ class ProxyManager: ObservableObject {
                 BackgroundManager.shared.startBackgroundTask()
             }
             startStatsPolling()
+            if let initial = getStats() {
+                DispatchQueue.main.async { self.stats = initial }
+                logger.info("Initial stats: \(initial.description, privacy: .public)")
+            } else {
+                logger.error("GetStats returned nil immediately after StartProxy")
+            }
             return true
         }
+
+        logger.error("Proxy failed to start, result=\(result)")
         return false
     }
 
     func stop() {
-        guard isRunning else { return }
+        guard isRunning else {
+            logger.info("Stop requested while proxy is not running")
+            return
+        }
+
+        logger.info("Stopping proxy")
+        stopStatsPolling()
         statsQueue.async {
             StopProxy()
+            self.logger.info("StopProxy completed")
             DispatchQueue.main.async {
                 self.isRunning = false
                 self.stats = ProxyStats()
                 BackgroundManager.shared.stopBackgroundTask()
             }
         }
-        stopStatsPolling()
     }
 
     func getSecretWithPrefix() -> String? {
-        guard let ptr = GetSecretWithPrefix() else { return nil }
+        guard let ptr = GetSecretWithPrefix() else {
+            logger.error("GetSecretWithPrefix returned nil")
+            return nil
+        }
         let result = String(cString: ptr)
         FreeString(ptr)
         return result
     }
 
     func getStats() -> ProxyStats? {
-        guard let ptr = GetStats() else { return nil }
+        guard let ptr = GetStats() else {
+            logger.error("GetStats returned nil")
+            return nil
+        }
         let raw = String(cString: ptr)
         FreeString(ptr)
+        logger.debug("GetStats raw: \(raw, privacy: .public)")
         return parseStats(raw)
     }
 
     private func startStatsPolling() {
-        statsTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            guard let self = self, self.isRunning else { return }
-            self.statsQueue.async {
-                if let newStats = self.getStats() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.statsTimer?.invalidate()
+            let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+                guard let self = self, self.isRunning else { return }
+                self.statsQueue.async {
+                    guard let newStats = self.getStats() else { return }
                     DispatchQueue.main.async {
                         self.stats = newStats
                     }
                 }
             }
+            RunLoop.main.add(timer, forMode: .common)
+            self.statsTimer = timer
+            self.logger.info("Live stats polling started")
         }
     }
 
     private func stopStatsPolling() {
-        statsTimer?.invalidate()
-        statsTimer = nil
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.statsTimer?.invalidate()
+            self.statsTimer = nil
+            self.logger.info("Live stats polling stopped")
+        }
     }
 
     private func parseStats(_ raw: String) -> ProxyStats {
@@ -130,7 +170,7 @@ class ProxyManager: ObservableObject {
         guard let range = raw.range(of: key) else { return nil }
         let start = range.upperBound
         let rest = String(raw[start...])
-        let value = rest.split(separator: " ").first.map(String.init) ?? ""
+        let value = rest.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\r" }).first.map(String.init) ?? ""
         return Int64(value)
     }
 
@@ -138,7 +178,7 @@ class ProxyManager: ObservableObject {
         guard let range = raw.range(of: key) else { return nil }
         let start = range.upperBound
         let rest = String(raw[start...])
-        return rest.split(separator: " ").first.map(String.init)
+        return rest.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\r" }).first.map(String.init)
     }
 
     private func parseHumanBytes(_ s: String) -> Int64 {
