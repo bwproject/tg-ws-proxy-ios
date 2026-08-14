@@ -35,7 +35,7 @@ struct ProxyStats {
     }
 }
 
-class ProxyManager: ObservableObject {
+final class ProxyManager: ObservableObject {
     static let shared = ProxyManager()
 
     @Published var isRunning = false
@@ -44,25 +44,35 @@ class ProxyManager: ObservableObject {
     private var statsTimer: Timer?
     private let statsQueue = DispatchQueue(label: "com.tgwsproxy.stats", qos: .utility)
     private let logger = Logger(subsystem: "com.tgwsproxy", category: "Proxy")
+    private let appLog = LogManager.shared
 
     private init() {}
 
+    private func log(_ message: String, level: LogLevel = .info) {
+        appLog.addLog(message, level: level)
+        switch level {
+        case .error: logger.error("\(message, privacy: .public)")
+        case .warn: logger.warning("\(message, privacy: .public)")
+        case .debug: logger.debug("\(message, privacy: .public)")
+        case .info: logger.info("\(message, privacy: .public)")
+        }
+    }
+
     func start(port: Int, dcIps: String, poolSize: Int, cfEnabled: Bool, cfPriority: Bool, cfDomain: String, secretKey: String) -> Bool {
         guard !isRunning else {
-            logger.info("Start requested while proxy is already running")
+            log("Start requested while proxy is already running", level: .warn)
             return false
         }
 
-        logger.info("Starting proxy: port=\(port), pool=\(poolSize), cf=\(cfEnabled), cfPriority=\(cfPriority), dcIps=\(dcIps, privacy: .private(mask: .hash)), secretConfigured=\(!secretKey.isEmpty)")
+        log("Starting proxy: port=\(port), pool=\(poolSize), cf=\(cfEnabled), cfPriority=\(cfPriority), dcIps=\(dcIps.isEmpty ? \"auto\" : dcIps), secretConfigured=\(!secretKey.isEmpty)")
 
         SetPoolSize(Int32(poolSize))
         SetCfProxyCacheDir(cachesDirectory().path)
         SetCfProxyConfig(cfEnabled ? 1 : 0, cfPriority ? 1 : 0, cfDomain)
+        log("Native proxy configuration applied", level: .debug)
 
-        logger.debug("Native proxy configuration applied")
-        let host = "127.0.0.1"
-        let result = StartProxy(host, Int32(port), dcIps, secretKey, 1)
-        logger.info("StartProxy returned \(result)")
+        let result = StartProxy("127.0.0.1", Int32(port), dcIps, secretKey, 1)
+        log("StartProxy returned \(result)", level: result == 0 ? .info : .error)
 
         if result == 0 {
             DispatchQueue.main.async {
@@ -72,28 +82,28 @@ class ProxyManager: ObservableObject {
             startStatsPolling()
             if let initial = getStats() {
                 DispatchQueue.main.async { self.stats = initial }
-                logger.info("Initial stats: \(initial.description, privacy: .public)")
+                log("Initial stats: \(initial.description)")
             } else {
-                logger.error("GetStats returned nil immediately after StartProxy")
+                log("GetStats returned nil immediately after StartProxy", level: .error)
             }
             return true
         }
 
-        logger.error("Proxy failed to start, result=\(result)")
+        log("Proxy failed to start, result=\(result)", level: .error)
         return false
     }
 
     func stop() {
         guard isRunning else {
-            logger.info("Stop requested while proxy is not running")
+            log("Stop requested while proxy is not running", level: .warn)
             return
         }
 
-        logger.info("Stopping proxy")
+        log("Stopping proxy")
         stopStatsPolling()
         statsQueue.async {
             StopProxy()
-            self.logger.info("StopProxy completed")
+            self.log("StopProxy completed")
             DispatchQueue.main.async {
                 self.isRunning = false
                 self.stats = ProxyStats()
@@ -104,7 +114,7 @@ class ProxyManager: ObservableObject {
 
     func getSecretWithPrefix() -> String? {
         guard let ptr = GetSecretWithPrefix() else {
-            logger.error("GetSecretWithPrefix returned nil")
+            log("GetSecretWithPrefix returned nil", level: .error)
             return nil
         }
         let result = String(cString: ptr)
@@ -114,12 +124,12 @@ class ProxyManager: ObservableObject {
 
     func getStats() -> ProxyStats? {
         guard let ptr = GetStats() else {
-            logger.error("GetStats returned nil")
+            log("GetStats returned nil", level: .error)
             return nil
         }
         let raw = String(cString: ptr)
         FreeString(ptr)
-        logger.debug("GetStats raw: \(raw, privacy: .public)")
+        log("GetStats raw: \(raw)", level: .debug)
         return parseStats(raw)
     }
 
@@ -138,7 +148,7 @@ class ProxyManager: ObservableObject {
             }
             RunLoop.main.add(timer, forMode: .common)
             self.statsTimer = timer
-            self.logger.info("Live stats polling started")
+            self.log("Live stats polling started")
         }
     }
 
@@ -147,7 +157,7 @@ class ProxyManager: ObservableObject {
             guard let self = self else { return }
             self.statsTimer?.invalidate()
             self.statsTimer = nil
-            self.logger.info("Live stats polling stopped")
+            self.log("Live stats polling stopped")
         }
     }
 
@@ -168,16 +178,14 @@ class ProxyManager: ObservableObject {
 
     private func extractStat(_ raw: String, key: String) -> Int64? {
         guard let range = raw.range(of: key) else { return nil }
-        let start = range.upperBound
-        let rest = String(raw[start...])
+        let rest = String(raw[range.upperBound...])
         let value = rest.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\r" }).first.map(String.init) ?? ""
         return Int64(value)
     }
 
     private func extractString(_ raw: String, key: String) -> String? {
         guard let range = raw.range(of: key) else { return nil }
-        let start = range.upperBound
-        let rest = String(raw[start...])
+        let rest = String(raw[range.upperBound...])
         return rest.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\r" }).first.map(String.init)
     }
 
@@ -192,7 +200,6 @@ class ProxyManager: ObservableObject {
     }
 
     private func cachesDirectory() -> URL {
-        let paths = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
-        return paths[0]
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
     }
 }
