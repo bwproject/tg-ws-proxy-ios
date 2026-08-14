@@ -2,7 +2,6 @@ import Foundation
 import Combine
 import UIKit
 import AVFoundation
-import CoreLocation
 
 final class BackgroundManager: NSObject, ObservableObject {
     static let shared = BackgroundManager()
@@ -12,7 +11,6 @@ final class BackgroundManager: NSObject, ObservableObject {
     private var bgTask: UIBackgroundTaskIdentifier = .invalid
     private var audioPlayer: AVAudioPlayer?
     private var keepAliveTimer: Timer?
-    private var locationManager: CLLocationManager?
     private var bgRefreshTimer: Timer?
     private var observers: [NSObjectProtocol] = []
 
@@ -40,7 +38,6 @@ final class BackgroundManager: NSObject, ObservableObject {
         isBackgroundActive = false
         endBackgroundTask()
         stopSilentAudio()
-        stopLocationUpdates()
         stopKeepAliveTimer()
         stopBackgroundRefresh()
         NSLog("[Background] Proxy background protection stopped")
@@ -81,15 +78,11 @@ final class BackgroundManager: NSObject, ObservableObject {
 
     private func ensureBackgroundServicesRunning() {
         guard isBackgroundActive else { return }
-
         beginBackgroundTask()
         startSilentAudio()
-        startLocationUpdates()
         startKeepAliveTimer()
         startBackgroundRefresh()
     }
-
-    // MARK: - Background task
 
     private func beginBackgroundTask() {
         guard bgTask == .invalid else { return }
@@ -97,9 +90,6 @@ final class BackgroundManager: NSObject, ObservableObject {
         bgTask = UIApplication.shared.beginBackgroundTask(withName: "TgWsProxyKeepAlive") { [weak self] in
             NSLog("[Background] System background task expired")
             self?.bgTask = .invalid
-
-            // Audio/location are the mechanisms intended to keep this service alive.
-            // Re-arm the task without stopping the proxy itself.
             guard let self = self, self.isBackgroundActive else { return }
             self.beginBackgroundTask()
         }
@@ -110,8 +100,6 @@ final class BackgroundManager: NSObject, ObservableObject {
         UIApplication.shared.endBackgroundTask(bgTask)
         bgTask = .invalid
     }
-
-    // MARK: - Background audio
 
     private func startSilentAudio() {
         guard audioPlayer?.isPlaying != true else { return }
@@ -162,38 +150,6 @@ final class BackgroundManager: NSObject, ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
-    // MARK: - Location
-
-    private func startLocationUpdates() {
-        if locationManager == nil {
-            let manager = CLLocationManager()
-            manager.delegate = self
-            manager.allowsBackgroundLocationUpdates = true
-            manager.pausesLocationUpdatesAutomatically = false
-            manager.showsBackgroundLocationIndicator = false
-            manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
-            manager.distanceFilter = 1000
-            locationManager = manager
-        }
-
-        guard let manager = locationManager else { return }
-
-        if manager.authorizationStatus == .notDetermined {
-            manager.requestAlwaysAuthorization()
-        }
-
-        if manager.authorizationStatus == .authorizedAlways || manager.authorizationStatus == .authorizedWhenInUse {
-            manager.startUpdatingLocation()
-        }
-    }
-
-    private func stopLocationUpdates() {
-        locationManager?.stopUpdatingLocation()
-        locationManager = nil
-    }
-
-    // MARK: - Keep alive timers
-
     private func startKeepAliveTimer() {
         guard keepAliveTimer == nil else { return }
         let timer = Timer(timeInterval: 15.0, repeats: true) { [weak self] _ in
@@ -215,7 +171,6 @@ final class BackgroundManager: NSObject, ObservableObject {
             guard let self = self, self.isBackgroundActive else { return }
             self.beginBackgroundTask()
             self.startSilentAudio()
-            self.startLocationUpdates()
         }
         RunLoop.main.add(timer, forMode: .common)
         bgRefreshTimer = timer
@@ -224,15 +179,5 @@ final class BackgroundManager: NSObject, ObservableObject {
     private func stopBackgroundRefresh() {
         bgRefreshTimer?.invalidate()
         bgRefreshTimer = nil
-    }
-}
-
-extension BackgroundManager: CLLocationManagerDelegate {
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        NSLog("[Background] Location update received")
-    }
-
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        NSLog("[Background] Location error: \(error)")
     }
 }
