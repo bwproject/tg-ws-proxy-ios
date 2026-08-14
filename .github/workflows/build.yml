@@ -29,13 +29,12 @@ jobs:
         with:
           go-version: '1.20'
 
-      - name: Prepare AppIcon
+      - name: Verify AppIcon
         shell: bash
         run: |
           set -euo pipefail
-          test -f Assets.xcassets/AppIcon.png
-          mkdir -p TgWsProxy/Assets.xcassets/AppIcon.appiconset
-          cp Assets.xcassets/AppIcon.png TgWsProxy/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+          test -f TgWsProxy/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+          test -f TgWsProxy/Assets.xcassets/AppIcon.appiconset/Contents.json
 
       - name: Build XCFramework
         shell: bash
