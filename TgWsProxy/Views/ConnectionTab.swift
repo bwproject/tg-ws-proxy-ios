@@ -1,12 +1,10 @@
 import SwiftUI
-import CoreLocation
 
 struct ConnectionTab: View {
     @EnvironmentObject var proxyManager: ProxyManager
     @EnvironmentObject var settings: SettingsStore
 
     @State private var isStarting = false
-    @State private var locationManager = CLLocationManager()
 
     private var statusText: String {
         if isStarting { return "Подключение..." }
@@ -58,25 +56,13 @@ struct ConnectionTab: View {
 
                 VStack(spacing: 10) {
                     HStack {
-                        StatusItem(
-                            title: settings.cfproxyEnabled ? "CF" : "Direct",
-                            subtitle: "Mode"
-                        )
+                        StatusItem(title: settings.cfproxyEnabled ? "CF" : "Direct", subtitle: "Mode")
                         Divider().frame(height: 30)
-                        StatusItem(
-                            title: "\(settings.poolSize)",
-                            subtitle: "Pool"
-                        )
+                        StatusItem(title: "\(settings.poolSize)", subtitle: "Pool")
                         Divider().frame(height: 30)
-                        StatusItem(
-                            title: settings.port,
-                            subtitle: "Port"
-                        )
+                        StatusItem(title: settings.port, subtitle: "Port")
                         Divider().frame(height: 30)
-                        StatusItem(
-                            title: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
-                            subtitle: "Ver"
-                        )
+                        StatusItem(title: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0", subtitle: "Ver")
                     }
                     .padding(.vertical, 10)
                     .padding(.horizontal, 12)
@@ -126,34 +112,35 @@ struct ConnectionTab: View {
         if proxyManager.isRunning {
             proxyManager.stop()
             isStarting = false
-        } else {
-            requestBackgroundPermissions()
-            isStarting = true
-            let dcIps = settings.buildDcIps()
-            let port = Int(settings.port) ?? 1443
-            let cfDomain = settings.customCfDomainEnabled ? settings.customCfDomain : ""
+            return
+        }
 
-            DispatchQueue.global(qos: .userInitiated).async {
-                let started = proxyManager.start(
-                    port: port,
-                    dcIps: dcIps,
-                    poolSize: settings.poolSize,
-                    cfEnabled: settings.cfproxyEnabled,
-                    cfPriority: true,
-                    cfDomain: cfDomain,
-                    secretKey: settings.secretKey
-                )
-                DispatchQueue.main.async {
-                    isStarting = false
-                    _ = started
+        isStarting = true
+        let dcIps = settings.buildDcIps()
+        let port = Int(settings.port) ?? 1443
+        let cfDomain = settings.customCfDomainEnabled ? settings.customCfDomain : ""
+        let poolSize = settings.poolSize
+        let cfEnabled = settings.cfproxyEnabled
+        let secretKey = settings.secretKey
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let started = proxyManager.start(
+                port: port,
+                dcIps: dcIps,
+                poolSize: poolSize,
+                cfEnabled: cfEnabled,
+                cfPriority: true,
+                cfDomain: cfDomain,
+                secretKey: secretKey
+            )
+
+            DispatchQueue.main.async {
+                isStarting = false
+                if !started {
+                    proxyManager.isRunning = false
                 }
             }
         }
-    }
-    
-    private func requestBackgroundPermissions() {
-        locationManager.requestAlwaysAuthorization()
-        locationManager.requestWhenInUseAuthorization()
     }
 
     private func openTelegram() {
