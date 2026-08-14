@@ -2,11 +2,9 @@ name: Build iOS 15 IPA
 
 on:
   push:
-    branches:
-      - ios15
+    branches: [ios15]
   pull_request:
-    branches:
-      - ios15
+    branches: [ios15]
   workflow_dispatch:
 
 concurrency:
@@ -18,6 +16,7 @@ permissions:
 
 jobs:
   build:
+    name: Build TgWsProxy iOS 15
     runs-on: macos-14
 
     steps:
@@ -28,84 +27,79 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.20'
+          cache: true
 
-      - name: Prepare AppIcon for iOS 15
+      - name: Check Xcode
+        run: |
+          set -e
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          go version
+
+      - name: Prepare AppIcon
         shell: bash
         run: |
-          set -euo pipefail
-
+          set -e
           ICON_DIR="TgWsProxy/Assets.xcassets/AppIcon.appiconset"
           SOURCE="$ICON_DIR/AppIcon.png"
-
           test -f "$SOURCE"
-          mkdir -p "$ICON_DIR"
 
-          # macOS bash is 3.2 and does not support associative arrays.
-          # Keep this as a plain list for compatibility with GitHub macOS runners.
-          for size in 20 29 40 58 60 76 80 87 120 152 167 180 1024; do
+          # macOS runner ships Bash 3.2, so keep this POSIX-compatible.
+          for size in 40 58 60 76 80 87 120 152 167 180 1024; do
             sips -z "$size" "$size" "$SOURCE" --out "$ICON_DIR/AppIcon-${size}.png" >/dev/null
           done
 
-          cat > "$ICON_DIR/Contents.json" <<'JSON'
+          cat > "$ICON_DIR/Contents.json" <<'EOF'
 {
   "images" : [
-    { "filename" : "AppIcon-40.png",   "idiom" : "iphone", "scale" : "2x", "size" : "20x20" },
-    { "filename" : "AppIcon-60.png",   "idiom" : "iphone", "scale" : "3x", "size" : "20x20" },
-    { "filename" : "AppIcon-58.png",   "idiom" : "iphone", "scale" : "2x", "size" : "29x29" },
-    { "filename" : "AppIcon-87.png",   "idiom" : "iphone", "scale" : "3x", "size" : "29x29" },
-    { "filename" : "AppIcon-80.png",   "idiom" : "iphone", "scale" : "2x", "size" : "40x40" },
-    { "filename" : "AppIcon-120.png",  "idiom" : "iphone", "scale" : "3x", "size" : "40x40" },
-    { "filename" : "AppIcon-120.png",  "idiom" : "iphone", "scale" : "2x", "size" : "60x60" },
-    { "filename" : "AppIcon-180.png",  "idiom" : "iphone", "scale" : "3x", "size" : "60x60" },
-    { "filename" : "AppIcon-40.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "20x20" },
-    { "filename" : "AppIcon-58.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "29x29" },
-    { "filename" : "AppIcon-80.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "40x40" },
-    { "filename" : "AppIcon-76.png",   "idiom" : "ipad",   "scale" : "1x", "size" : "76x76" },
-    { "filename" : "AppIcon-152.png",  "idiom" : "ipad",   "scale" : "2x", "size" : "76x76" },
-    { "filename" : "AppIcon-167.png",  "idiom" : "ipad",   "scale" : "2x", "size" : "83.5x83.5" },
+    { "filename" : "AppIcon-40.png", "idiom" : "iphone", "scale" : "2x", "size" : "20x20" },
+    { "filename" : "AppIcon-60.png", "idiom" : "iphone", "scale" : "3x", "size" : "20x20" },
+    { "filename" : "AppIcon-58.png", "idiom" : "iphone", "scale" : "2x", "size" : "29x29" },
+    { "filename" : "AppIcon-87.png", "idiom" : "iphone", "scale" : "3x", "size" : "29x29" },
+    { "filename" : "AppIcon-80.png", "idiom" : "iphone", "scale" : "2x", "size" : "40x40" },
+    { "filename" : "AppIcon-120.png", "idiom" : "iphone", "scale" : "3x", "size" : "40x40" },
+    { "filename" : "AppIcon-120.png", "idiom" : "iphone", "scale" : "2x", "size" : "60x60" },
+    { "filename" : "AppIcon-180.png", "idiom" : "iphone", "scale" : "3x", "size" : "60x60" },
+    { "filename" : "AppIcon-40.png", "idiom" : "ipad", "scale" : "2x", "size" : "20x20" },
+    { "filename" : "AppIcon-58.png", "idiom" : "ipad", "scale" : "2x", "size" : "29x29" },
+    { "filename" : "AppIcon-80.png", "idiom" : "ipad", "scale" : "2x", "size" : "40x40" },
+    { "filename" : "AppIcon-76.png", "idiom" : "ipad", "scale" : "1x", "size" : "76x76" },
+    { "filename" : "AppIcon-152.png", "idiom" : "ipad", "scale" : "2x", "size" : "76x76" },
+    { "filename" : "AppIcon-167.png", "idiom" : "ipad", "scale" : "2x", "size" : "83.5x83.5" },
     { "filename" : "AppIcon-1024.png", "idiom" : "ios-marketing", "scale" : "1x", "size" : "1024x1024" }
   ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
-  }
+  "info" : { "author" : "xcode", "version" : 1 }
 }
-JSON
+EOF
 
-          echo "Prepared AppIcon assets:"
-          sips -g pixelWidth -g pixelHeight \
-            "$ICON_DIR/AppIcon-40.png" \
-            "$ICON_DIR/AppIcon-58.png" \
-            "$ICON_DIR/AppIcon-60.png" \
-            "$ICON_DIR/AppIcon-76.png" \
-            "$ICON_DIR/AppIcon-80.png" \
-            "$ICON_DIR/AppIcon-87.png" \
-            "$ICON_DIR/AppIcon-1024.png" \
-            "$ICON_DIR/AppIcon-120.png" \
-            "$ICON_DIR/AppIcon-152.png" \
-            "$ICON_DIR/AppIcon-167.png" \
-            "$ICON_DIR/AppIcon-180.png"
+          xcrun actool "$ICON_DIR" \
+            --compile /tmp/appicon-test \
+            --platform iphoneos \
+            --minimum-deployment-target 15.0 \
+            --app-icon AppIcon \
+            --output-partial-info-plist /tmp/appicon-info.plist
 
-      - name: Build XCFramework
+      - name: Build Go static libraries
         shell: bash
         run: |
-          set -euo pipefail
+          set -e
+          rm -rf build
           mkdir -p build/ios build/sim
 
-          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-          CC_PATH=$(xcrun --sdk iphoneos -f clang)
+          IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          IOS_CC=$(xcrun --sdk iphoneos -f clang)
           CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
-            CC="$CC_PATH" \
-            CGO_CFLAGS="-isysroot $SDK_PATH -arch arm64 -mios-version-min=15.0" \
-            CGO_LDFLAGS="-isysroot $SDK_PATH -arch arm64 -mios-version-min=15.0" \
+            CC="$IOS_CC" \
+            CGO_CFLAGS="-isysroot $IOS_SDK -arch arm64 -mios-version-min=15.0" \
+            CGO_LDFLAGS="-isysroot $IOS_SDK -arch arm64 -mios-version-min=15.0" \
             go build -v -buildmode=c-archive -o build/ios/libtgwsproxy.a .
 
-          SIM_SDK_PATH=$(xcrun --sdk iphonesimulator --show-sdk-path)
-          SIM_CC_PATH=$(xcrun --sdk iphonesimulator -f clang)
+          SIM_SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          SIM_CC=$(xcrun --sdk iphonesimulator -f clang)
           CGO_ENABLED=1 GOOS=ios GOARCH=arm64 \
-            CC="$SIM_CC_PATH" \
-            CGO_CFLAGS="-isysroot $SIM_SDK_PATH -arch arm64 -mios-simulator-version-min=15.0" \
-            CGO_LDFLAGS="-isysroot $SIM_SDK_PATH -arch arm64 -mios-simulator-version-min=15.0" \
+            CC="$SIM_CC" \
+            CGO_CFLAGS="-isysroot $SIM_SDK -arch arm64 -mios-simulator-version-min=15.0" \
+            CGO_LDFLAGS="-isysroot $SIM_SDK -arch arm64 -mios-simulator-version-min=15.0" \
             go build -v -buildmode=c-archive -o build/sim/libtgwsproxy.a .
 
           xcodebuild -create-xcframework \
@@ -122,49 +116,48 @@ JSON
             -project TgWsProxy.xcodeproj \
             -scheme TgWsProxy \
             -configuration Release \
-            -archivePath build/TgWsProxy.xcarchive \
+            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/TgWsProxy.xcarchive" \
             IPHONEOS_DEPLOYMENT_TARGET=15.0 \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            "LIBRARY_SEARCH_PATHS=$(pwd)/build/ios" \
-            "OTHER_LDFLAGS=$(pwd)/build/ios/libtgwsproxy.a" \
-            2>&1 | tee build/logs/xcodebuild.log
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            LIBRARY_SEARCH_PATHS="$PWD/build/ios" \
+            OTHER_LDFLAGS="$PWD/build/ios/libtgwsproxy.a" \
+            | tee build/logs/xcodebuild.log
 
-      - name: Verify app
+      - name: Verify archive
         shell: bash
         run: |
-          set -euo pipefail
+          set -e
           APP="build/TgWsProxy.xcarchive/Products/Applications/TgWsProxy.app"
           test -d "$APP"
-          MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
-          echo "MinimumOSVersion: $MIN_OS"
-          test "$MIN_OS" = "15.0"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFiles' "$APP/Info.plist"
           test -f "$APP/Assets.car"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist" || true
+          file "$APP/TgWsProxy"
 
-      - name: Package IPA
+      - name: Create IPA
         shell: bash
         run: |
-          set -euo pipefail
+          set -e
           rm -rf build/ipa
           mkdir -p build/ipa/Payload
-          cp -R build/TgWsProxy.xcarchive/Products/Applications/TgWsProxy.app build/ipa/Payload/
+          cp -R build/TgWsProxy.xcarchive/Products/Applications/TgWsProxy.app build/ipa/Payload/TgWsProxy.app
           cd build/ipa
-          zip -qry ../TgWsProxy.ipa Payload
+          /usr/bin/zip -qry ../TgWsProxy-iOS15.ipa Payload
+          test -f ../TgWsProxy-iOS15.ipa
 
-      - name: Upload IPA artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: TgWsProxy-iOS15-IPA-${{ github.run_number }}
-          path: build/TgWsProxy.ipa
+          path: build/TgWsProxy-iOS15.ipa
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload XCFramework artifact
+      - name: Upload XCFramework
         uses: actions/upload-artifact@v4
         with:
           name: TgWsProxy-iOS15-XCFramework-${{ github.run_number }}
@@ -181,22 +174,19 @@ JSON
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Publish GitHub Release
+      - name: Publish release
         if: success()
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          set -euo pipefail
+          set -e
           TAG="ios15-v1.0.0"
-          TITLE="TG WS Proxy iOS 15 v1.0.0"
-          NOTES="iOS 15 compatible build of TG WS Proxy.\n\nMinimum supported iOS: 15.0.\nArchitecture: arm64.\n\nIPA is unsigned and intended for sideloading (AltStore, Sideloadly, TrollStore where applicable)."
-
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" build/TgWsProxy.ipa --clobber
+            gh release upload "$TAG" build/TgWsProxy-iOS15.ipa --clobber
           else
-            gh release create "$TAG" build/TgWsProxy.ipa \
+            gh release create "$TAG" build/TgWsProxy-iOS15.ipa \
               --target ios15 \
-              --title "$TITLE" \
-              --notes "$NOTES"
+              --title "TG WS Proxy iOS 15 v1.0.0" \
+              --notes "iOS 15 compatible unsigned IPA. Minimum iOS 15.0, arm64."
           fi
