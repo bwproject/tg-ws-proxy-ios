@@ -46,8 +46,11 @@ jobs:
             sips -z "$size" "$size" "$SOURCE" --out "$ICON_DIR/AppIcon-${size}.png" >/dev/null
           done
           python3 -m json.tool "$ICON_DIR/Contents.json" >/dev/null
-          xcrun actool "TgWsProxy/Assets.xcassets" --compile /tmp/appicon-test --platform iphoneos --minimum-deployment-target 15.0 --app-icon AppIcon --output-partial-info-plist /tmp/appicon-info.plist
-          test -f /tmp/appicon-test/Assets.car
+          rm -rf "$RUNNER_TEMP/appicon-test"
+          mkdir -p "$RUNNER_TEMP/appicon-test"
+          rm -f "$RUNNER_TEMP/appicon-info.plist"
+          xcrun actool "TgWsProxy/Assets.xcassets" --compile "$RUNNER_TEMP/appicon-test" --platform iphoneos --minimum-deployment-target 15.0 --app-icon AppIcon --output-partial-info-plist "$RUNNER_TEMP/appicon-info.plist"
+          test -f "$RUNNER_TEMP/appicon-test/Assets.car"
 
       - name: Build Go static libraries
         shell: bash
