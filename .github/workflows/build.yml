@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -93,7 +93,7 @@ jobs:
           /usr/bin/ditto -c -k --sequesterRsrc --keepParent build/Payload build/TgWsProxy-ios15.ipa
           test -f build/TgWsProxy-ios15.ipa
 
-      - name: Upload IPA
+      - name: Upload IPA artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
@@ -104,3 +104,50 @@ jobs:
             build/logs/xcodebuild.log
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: Publish latest successful build
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/ios15'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: TgWsProxy-iOS15
+          path: release
+
+      - name: Prepare release files
+        shell: bash
+        run: |
+          set -e
+          mkdir -p release-files
+          cp release/TgWsProxy-ios15.ipa release-files/TgWsProxy-ios15.ipa
+          if [ -f release/build/logs/xcodebuild.log ]; then cp release/build/logs/xcodebuild.log release-files/xcodebuild.log; fi
+          if [ -d release/build/TgWsProxy.xcframework ]; then ditto release/build/TgWsProxy.xcframework release-files/TgWsProxy.xcframework; fi
+          ls -lah release-files
+
+      - name: Publish latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios15-latest
+          name: TgWsProxy iOS 15 — Latest
+          body: |
+            ## TgWsProxy iOS 15
+
+            Последняя успешно собранная версия из ветки `ios15`.
+
+            - Commit: `${{ github.sha }}`
+            - Build: `#${{ github.run_number }}`
+            - iOS deployment target: `15.0`
+            - IPA: `TgWsProxy-ios15.ipa`
+          draft: false
+          prerelease: true
+          make_latest: false
+          files: |
+            release-files/TgWsProxy-ios15.ipa
+            release-files/xcodebuild.log
+            release-files/TgWsProxy.xcframework/**
+          fail_on_unmatched_files: false
