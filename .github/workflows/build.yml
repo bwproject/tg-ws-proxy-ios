@@ -40,53 +40,37 @@ jobs:
           test -f "$SOURCE"
           mkdir -p "$ICON_DIR"
 
-          # The source icon is 1254x1254. Generate every required iPhone/iPad
-          # size so actool sees exact pixel dimensions for every Contents.json slot.
-          declare -A SIZES=(
-            [20]=20
-            [29]=29
-            [40]=40
-            [58]=58
-            [60]=60
-            [76]=76
-            [80]=80
-            [87]=87
-            [120]=120
-            [152]=152
-            [167]=167
-            [180]=180
-            [1024]=1024
-          )
-
-          for size in "${!SIZES[@]}"; do
+          # macOS bash is 3.2 and does not support associative arrays.
+          # Keep this as a plain list for compatibility with GitHub macOS runners.
+          for size in 20 29 40 58 60 76 80 87 120 152 167 180 1024; do
             sips -z "$size" "$size" "$SOURCE" --out "$ICON_DIR/AppIcon-${size}.png" >/dev/null
           done
 
           cat > "$ICON_DIR/Contents.json" <<'JSON'
-          {
-            "images" : [
-              { "filename" : "AppIcon-40.png",   "idiom" : "iphone", "scale" : "2x", "size" : "20x20" },
-              { "filename" : "AppIcon-60.png",   "idiom" : "iphone", "scale" : "3x", "size" : "20x20" },
-              { "filename" : "AppIcon-58.png",   "idiom" : "iphone", "scale" : "2x", "size" : "29x29" },
-              { "filename" : "AppIcon-87.png",   "idiom" : "iphone", "scale" : "3x", "size" : "29x29" },
-              { "filename" : "AppIcon-80.png",   "idiom" : "iphone", "scale" : "2x", "size" : "40x40" },
-              { "filename" : "AppIcon-120.png",  "idiom" : "iphone", "scale" : "3x", "size" : "40x40" },
-              { "filename" : "AppIcon-120.png",  "idiom" : "iphone", "scale" : "2x", "size" : "60x60" },
-              { "filename" : "AppIcon-180.png",  "idiom" : "iphone", "scale" : "3x", "size" : "60x60" },
-              { "filename" : "AppIcon-40.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "20x20" },
-              { "filename" : "AppIcon-58.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "29x29" },
-              { "filename" : "AppIcon-80.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "40x40" },
-              { "filename" : "AppIcon-76.png",   "idiom" : "ipad",   "scale" : "1x", "size" : "76x76" },
-              { "filename" : "AppIcon-152.png",  "idiom" : "ipad",   "scale" : "2x", "size" : "76x76" },
-              { "filename" : "AppIcon-167.png",  "idiom" : "ipad",   "scale" : "2x", "size" : "83.5x83.5" },
-              { "filename" : "AppIcon-1024.png", "idiom" : "ios-marketing", "scale" : "1x", "size" : "1024x1024" }
-            ],
-            "info" : {
-              "author" : "xcode",
-              "version" : 1
-            }
-          }
-          JSON
+{
+  "images" : [
+    { "filename" : "AppIcon-40.png",   "idiom" : "iphone", "scale" : "2x", "size" : "20x20" },
+    { "filename" : "AppIcon-60.png",   "idiom" : "iphone", "scale" : "3x", "size" : "20x20" },
+    { "filename" : "AppIcon-58.png",   "idiom" : "iphone", "scale" : "2x", "size" : "29x29" },
+    { "filename" : "AppIcon-87.png",   "idiom" : "iphone", "scale" : "3x", "size" : "29x29" },
+    { "filename" : "AppIcon-80.png",   "idiom" : "iphone", "scale" : "2x", "size" : "40x40" },
+    { "filename" : "AppIcon-120.png",  "idiom" : "iphone", "scale" : "3x", "size" : "40x40" },
+    { "filename" : "AppIcon-120.png",  "idiom" : "iphone", "scale" : "2x", "size" : "60x60" },
+    { "filename" : "AppIcon-180.png",  "idiom" : "iphone", "scale" : "3x", "size" : "60x60" },
+    { "filename" : "AppIcon-40.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "20x20" },
+    { "filename" : "AppIcon-58.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "29x29" },
+    { "filename" : "AppIcon-80.png",   "idiom" : "ipad",   "scale" : "2x", "size" : "40x40" },
+    { "filename" : "AppIcon-76.png",   "idiom" : "ipad",   "scale" : "1x", "size" : "76x76" },
+    { "filename" : "AppIcon-152.png",  "idiom" : "ipad",   "scale" : "2x", "size" : "76x76" },
+    { "filename" : "AppIcon-167.png",  "idiom" : "ipad",   "scale" : "2x", "size" : "83.5x83.5" },
+    { "filename" : "AppIcon-1024.png", "idiom" : "ios-marketing", "scale" : "1x", "size" : "1024x1024" }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+JSON
 
           echo "Prepared AppIcon assets:"
           sips -g pixelWidth -g pixelHeight \
